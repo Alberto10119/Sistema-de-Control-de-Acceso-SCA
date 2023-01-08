@@ -16,8 +16,7 @@ void setup()
   Serial.println("\n\nREGISTRO DE HUELLA DACTILAR");
   mySerial.begin(57600,SERIAL_8N1,16,17);
 
-  // set the data rate for the sensor serial port
-  //finger.begin(57600);
+
 
   if (finger.verifyPassword()) {
     Serial.println("Sensor de huella detectado");
@@ -26,15 +25,8 @@ void setup()
     while (1) { delay(1); }
   }
 
-  //Serial.println(F("Reading sensor parameters"));
   finger.getParameters();
- /* Serial.print(F("Status: 0x")); Serial.println(finger.status_reg, HEX);
-  Serial.print(F("Sys ID: 0x")); Serial.println(finger.system_id, HEX);
-  Serial.print(F("Capacity: ")); Serial.println(finger.capacity);
-  Serial.print(F("Security level: ")); Serial.println(finger.security_level);
-  Serial.print(F("Device address: ")); Serial.println(finger.device_addr, HEX);
-  Serial.print(F("Packet len: ")); Serial.println(finger.packet_len);
-  Serial.print(F("Baud rate: ")); Serial.println(finger.baud_rate);*/
+
 }
 
 uint8_t readnumber(void) {
@@ -47,12 +39,12 @@ uint8_t readnumber(void) {
   return num;
 }
 
-void loop()                     // run over and over again
+void loop()                   
 {
   Serial.println("Listo para registrar una nueva huella");
   Serial.println("Introduce el numero de ID que quieres que tenga esta huella");
   id = readnumber();
-  if (id == 0) {// ID #0 not allowed, try again!
+  if (id == 0) {// 
      return;
   }
   Serial.print("Registrando ID #");
@@ -87,7 +79,7 @@ uint8_t getFingerprintEnroll() {
     }
   }
 
-  // OK success!
+
 
   p = finger.image2Tz(1);
   switch (p) {
@@ -141,7 +133,7 @@ uint8_t getFingerprintEnroll() {
     }
   }
 
-  // OK success!
+ 
 
   p = finger.image2Tz(2);
   switch (p) {
@@ -165,12 +157,12 @@ uint8_t getFingerprintEnroll() {
       return p;
   }
 
-  // OK converted!
+
   Serial.print("Creando modelo para #");  Serial.println(id);
 
   p = finger.createModel();
   if (p == FINGERPRINT_OK) {
-    //Serial.println("Prints matched!");
+   
   } else if (p == FINGERPRINT_PACKETRECIEVEERR) {
     Serial.println("Communication error");
     return p;
