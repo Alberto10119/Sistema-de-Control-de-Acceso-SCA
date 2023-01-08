@@ -48,18 +48,16 @@ BluetoothSerial SerialBT;
 const String deviceName = "Sistema de Control de Acceso";
 
 
-String passwordF;// change your password here
+String passwordF;
 String input_password;
 String generarContrasenia();
 
 
 /***************************WIFI***************************/
 
-//const char* ssid     = "Prueba";   //your network SSID
-//const char* password = "diegochupala";   //your network password
 
-const char* ssid     = "MiFibra-A045";   //your network SSID
-const char* password = "XrbL9knC";   //your network password
+const char* ssid     = "MiFibra-A045";   
+const char* password = "XrbL9knC";   
 
 /*******************************HUELLA*********************/
 HardwareSerial mySerial(1);

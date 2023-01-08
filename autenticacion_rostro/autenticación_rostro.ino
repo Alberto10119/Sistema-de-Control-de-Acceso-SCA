@@ -29,8 +29,6 @@ char* ftp_user = "AlbertoP";
 char* ftp_pass = "servidor12345";
 char* ftp_path = "./Compare";
 
-//const char* WIFI_SSID = "Prueba";
-//const char* WIFI_PASS = "diegochupala";
 
 //const char* WIFI_SSID = "MiFibra-3747";
 //const char* WIFI_PASS = "MaJptK39";
