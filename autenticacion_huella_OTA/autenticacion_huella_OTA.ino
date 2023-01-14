@@ -62,8 +62,6 @@ String generarContrasenia();
 
 /***************************WIFI***************************/
 
-//const char* ssid     = "Prueba";   //your network SSID
-//const char* password = "diegochupala";   //your network password
 
 //const char* ssid     = "MiFibra-A045";   //your network SSID
 //const char* password = "XrbL9knC";   //your network password
