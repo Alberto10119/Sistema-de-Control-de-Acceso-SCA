@@ -1,6 +1,6 @@
 
 from firebase import firebase
-import cv2
+#from collections.abc import MutableMapping
 import face_recognition
 from os import remove 
 from os import listdir
@@ -9,11 +9,15 @@ import os
 firebase = firebase.FirebaseApplication("https://sca-esp-default-rtdb.europe-west1.firebasedatabase.app/",None)
 pathCompare = "C:/Users/Alberto/Documents/DataWifi/Compare"
 
-while(1):
+firebase.put('/Rostros/id1','recog',3)
+
+'''while(1):
 
 
     dir = os.listdir(pathCompare)
     if(len(dir) > 0):
+    
+        os.system('cd /Users/Alberto/Documents/DataWifi/Compare ; chmod 775 *')
     
         name = str(dir)
         separar = name.split('.')[0]
@@ -44,5 +48,5 @@ while(1):
                 if result[0] == False:
                     print("Las caras NO coinciden")
                     remove(pathCompare+'/comparar_'+idNum+'.jpg')
-                    firebase.put('/Rostros/id'+number,'recog',2)
+                    firebase.put('/Rostros/id'+number,'recog',2)'''
 
