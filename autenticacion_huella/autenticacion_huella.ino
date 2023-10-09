@@ -1,440 +1,348 @@
-#include <Adafruit_Fingerprint.h>
-#include <esp_now.h>
-#include <WiFi.h>
-#include <Keypad.h>
-#include <LiquidCrystal.h>
-#include "soc/soc.h"           // Disable brownour problems
-#include "soc/rtc_cntl_reg.h"  // Disable brownour problems
-#include "BluetoothSerial.h"
-#include <time.h>
-#include <math.h>
-
-#define ROW_NUM     4 // four rows
-#define COLUMN_NUM  4 // four columns
-
-#define LEDV 5
-#define LEDR 15
-#define ACCESS_DELAY    3000 // Keep lock unlocked for 3 seconds 
-#define RELAY_PIN 2
-#define N 6 //password lenght
-
-/**************************Teclado***************************/
-char keys[ROW_NUM][COLUMN_NUM] = {
-  {'1', '2', '3', 'A'},
-  {'4', '5', '6', 'B'},
-  {'7', '8', '9', 'C'},
-  {'*', '0', '#', 'D'}
-};
-
-byte pin_rows[ROW_NUM]      = {32, 23, 22, 21}; // GIOP19, GIOP18, GIOP5, GIOP17 connect to the row pins
-byte pin_column[COLUMN_NUM] = {19,18,4,0};   // GIOP16, GIOP4, GIOP0, GIOP2 connect to the column pins
-
-Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, ROW_NUM, COLUMN_NUM );
-String inicio= "Pulsa * para huella y # para invitado";
+#include "autenticacion_huella.h"
 
 
-/***************************PANTALLA****************/
-
-int lcdColumns = 20;
-int lcdRows = 4;
-
-
-const int RS = 13, EN = 14, d4 = 27, d5 = 26,d6 = 25 , d7 = 33;
-LiquidCrystal lcd(RS,EN,d4, d5, d6, d7);
-
-/**************************BLUETOOTH***********************/
-
-BluetoothSerial SerialBT;
-const String deviceName = "Sistema de Control de Acceso";
-
-
-String passwordF;
-String input_password;
-String generarContrasenia();
-
-
-/***************************WIFI***************************/
-
-
-const char* ssid     = "MiFibra-A045";   
-const char* password = "XrbL9knC";   
-
-/*******************************HUELLA*********************/
-HardwareSerial mySerial(1);
-Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
-
-
-/******************************ESP-NOW******************/
-
-uint8_t broadcastAddress[] = {0xC4, 0x4F, 0x33, 0x18, 0xAE, 0x2D};
-
-typedef struct resultados_huella {
-  int huella;
-  bool activar;
-};
-
-resultados_huella resul;
-
-
-typedef struct esp_eye {
-  int coincide;
-  bool camara;
-  
-};
-esp_eye rostro;
-
+#define mySSID "SCA"
+#define myPASSWORD "proyectoSCA"
 
 void OnSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  //Serial.print("\r\nSend message status:\t");
-  //Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Sent Successfully" : "Sent Failed");
+  
 }
 
 void OnRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rostro, incomingData, sizeof(rostro));
-  //Serial.print(rostro.coincide); 
 
 }
 
 int getFingerprintIDez() {
-  uint8_t p = finger.getImage();
+  uint8_t p = dedo.getImage();
   if (p != FINGERPRINT_OK)  return -2;
 
-  p = finger.image2Tz();
+  p = dedo.image2Tz();
   if (p != FINGERPRINT_OK)  return -2;
 
-  p = finger.fingerFastSearch();
+  p = dedo.fingerFastSearch();
   if (p != FINGERPRINT_OK)  return -1;
 
-  return finger.fingerID;
+  return dedo.fingerID;
 }
-void scrollText(int row, String message, int delayTime, int lcdColumns) {
-  for (int i=0; i < lcdColumns; i++) {
-    message = " " + message;  
-  } 
-  message = message + " "; 
-  for (int pos = 0; pos < message.length(); pos++) {
-    lcd.setCursor(0, row);
-    lcd.print(message.substring(pos, pos + lcdColumns));
-    delay(delayTime);
+
+
+void mostrarTextoDinamicoInicial(int fila, String mensaje, int tiempoDelay, int columnasLcd) {
+  lcd.clear();
+  for (int i = 0; i < columnasLcd; i++) {
+    mensaje = " " + mensaje;
   }
-}
-
-char g_key;
-
-void scrollInitialText(int row, String message, int delayTime, int lcdColumns){
-    //lcd.clear();
-    for (int i=0; i < lcdColumns; i++) {
-    message = " " + message;  
-  } 
-  message = message + " "; 
-  for (int pos = 0; ((pos < message.length())&&(g_key != '#')&&(g_key != '*')); pos++) {
-    g_key = keypad.getKey();
-    lcd.setCursor(0, row);
-    lcd.print(message.substring(pos, pos + lcdColumns));
-    delay(delayTime);
+  mensaje = mensaje + " ";
+  for (int pos = 0; ((pos < mensaje.length()) && (g_boton != '#') && (g_boton != '*')); pos++) {
+    g_boton = teclado.getKey();
+    lcd.setCursor(0, fila);
+    lcd.print(mensaje.substring(pos, pos + columnasLcd));
+    delay(tiempoDelay);
   }
-  
+
 }
 
-void scrollBluetoothText(int row, String message, int delayTime, int lcdColumns){
-    
-    for (int i=0; i < lcdColumns; i++) {
-    message = " " + message;  
-  } 
-  message = message + " "; 
-  for (int pos = 0; ((pos < message.length())&&(!SerialBT.hasClient())); pos++) { //cambiar la condicion de pos < message.length ¿inecesaria?
-  
-    lcd.setCursor(0, row);
-    lcd.print(message.substring(pos, pos + lcdColumns));
-    delay(delayTime);
+void mostrarTextoDinamicoBluetooth(int fila, String mensaje, int tiempoDelay, int columnasLcd) {
+
+  for (int i = 0; i < columnasLcd; i++) {
+    mensaje = " " + mensaje;
+  }
+  mensaje = mensaje + " ";
+  for (int pos = 0; ((pos < mensaje.length()) && (!SerialBT.hasClient())); pos++) { 
+
+    lcd.setCursor(0, fila);
+    lcd.print(mensaje.substring(pos, pos + columnasLcd));
+    delay(tiempoDelay);
   }
   SerialBT.println("Escriba # para solicitar contraseña");
-  
+
 }
 
-void displayMessage(String msg){
-  // set cursor to first column, first row
-  lcd.setCursor(0, 0);
-  // print scrolling message
-  lcd.display();
-  scrollText(1, msg, 250, lcdColumns);
-  lcd.clear();
-  delay(5);  
- 
-}
 
-void displayStatic(String msg){
-  
-  lcd.clear();
-  lcd.setCursor(0, 0);
+void mostrarTextoEstatico(String mensaje, uint8_t columna, uint8_t fila) {
 
-  //lcd.display();
- lcd.print(msg);
-  
+  lcd.clear();
+  lcd.setCursor(columna, fila);
+  lcd.print(mensaje);
+
 }
 
 String generarContrasenia() {
 
   int i = 0;
-  int randomizer = 0;
+  int randomizador = 0;
 
 
-  char numbers[] = "0123456789";
-  char LETTER[] = "ABCD";
-  char symbols[] = "*#";
+  char numeros[] = "0123456789";
+  char letras[] = "ABCD";
+  char simbolos[] = "*#";
 
-  String password;
+  String contrasenia;
 
-  randomizer = random(1, 4);
+  randomizador = random(1, 4);
   for (i = 0; i < N; i++) {
 
-    if (randomizer == 1) {
-      password += numbers[random(0, 10)];
+    if (randomizador == 1) {
+      contrasenia += numeros[random(0, 10)];
 
 
     }
-    else if (randomizer == 2) {
-      password += LETTER[random(0, 4)];
+    else if (randomizador == 2) {
+      contrasenia += letras[random(0, 4)];
 
 
     }
     else {
-      password += symbols[random(0, 2)];
+      contrasenia += simbolos[random(0, 2)];
 
 
     }
-    randomizer = random(1, 4);
+    randomizador = random(1, 4);
   }
-  return password;
+  return contrasenia;
 }
 
 
-bool autenticacionMiembro(){
+bool autenticacionMiembro() {
 
   rostro.camara = true;
-  displayStatic("Coloque el dedo");
-  
+  mostrarTextoEstatico("Coloque el dedo", 1, 1);
+
   resul.huella = getFingerprintIDez();
-  while(resul.huella == -2){
+  tiempoActual = millis();
+  tiempoDeseado = 20000;
+  
+  while (resul.huella == -2 && (millis() - tiempoActual) < tiempoDeseado) {
     resul.huella = getFingerprintIDez();
   }
-  if(resul.huella > 0){
-  
-    resul.activar = true;
-    
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &resul, sizeof(resul));
-   
-  displayStatic("Mire a cámara");
-  
-  resul.activar = false;           
+  if (resul.huella > 0) {
 
-  while(rostro.camara){   
-     
-    //displayStatic("Esperando resultado");
-   
+    resul.activar = true;
+    digitalWrite(LEDV, HIGH);
+
+    esp_err_t result = esp_now_send(direccionMAC, (uint8_t *) &resul, sizeof(resul));
+    
+
+    resul.activar = false;
+    digitalWrite(LEDV, LOW);
+    while (rostro.camara == true) {
+      mostrarTextoEstatico("Mire a la camara", 1, 1);
+
+
+    }
+
+    mostrarTextoEstatico("Esperando resultado..", 0, 1);
     delay(2000);
-    if(!rostro.camara){
-      
-      if(rostro.coincide == 1){
-      
+    if (rostro.coincide == RECONOCIDO) {
+
       return true;
     }
 
-    else if(rostro.coincide == 2){
-        
-      //displayStatic("Acceso denegado");
+    else if (rostro.coincide == INTRUSO) {
 
-        return false;
-         
-      
-      }
+      return false;
+
     }
+
+
+  }
+
+  else if (resul.huella == -1) {
+
+    return false;
+
+
+  }
+
+  else {
+
+      mostrarTextoEstatico("Tiempo agotado..", 2, 1);
+      delay(3000);
+      return false;
     
   }
-  
- rostro.camara= true;
-
- }
-
- else if(resul.huella == -1){
-     
-  return false;
-    
-     
- }
-   
 
 }
 
-unsigned long tiempo=0;
 
-bool indentificacionInvitado(){
- int contador = 0;
- bool entrar=false;
- bool server=true;
-  
-  
-  scrollBluetoothText(1, "Conectese al servidor blueetooth con su dispositivo movil", 250, lcdColumns);
+int intentos = 0;
+
+bool indentificacionInvitado() {
+  int contador = 0;
+  bool entrar = false;
+  bool servidor = true;
+  tiempoActual = millis();
+  tiempoDeseado = 20000;
+
+  mostrarTextoDinamicoBluetooth(1, "Conectese al servidor bluetooth con su dispositivo movil", 250, columnasLcd);
   lcd.clear();
-  while(server){
-   //tiempo = millis();  
-    
-  if(SerialBT.available()) // Compruebe si recibimos algo de Bluetooth
-  {
-    int incoming = SerialBT.read(); // Lee lo que recibimos
-    if (incoming == 35) { // # en ASCII  42 para *
-      passwordF = generarContrasenia();
-      SerialBT.println("La contraseña es " + passwordF);
-      SerialBT.println("Escriba la contraseña en el teclado del sistema");
-      //tiempo = 0;
-      entrar=true;
-      server=false;
+  while (servidor && (millis() - tiempoActual) < tiempoDeseado) {
+    mostrarTextoEstatico("Esperando..", 2, 1);
+    if (SerialBT.available()) // Compruebe si recibimos algo de Bluetooth
+    {
+      int recibido = SerialBT.read(); // Lee lo que recibimos
+      if (recibido == 35) { 
+        contraseniaGenerada = generarContrasenia();
+        SerialBT.println("La contraseña es " + contraseniaGenerada);
+        SerialBT.println("Escriba la contraseña en el teclado del sistema");
+        mostrarTextoEstatico("Contrasenia:", 1, 1);
+        entrar = true;
+        servidor = false;
+      }
+
     }
 
   }
- 
-  /*if(tiempo > 40000){
-    server=false;
-    tiempo=0;
-    return false;
-  }*/
+
+  if (!entrar){
+      mostrarTextoEstatico("Tiempo agotado..", 2, 1);
+      delay(3000);
+      SerialBT.disconnect();
+      servidor = false;
+      return false;
   }
-      lcd.clear();
-      while(entrar){ 
-      char key = keypad.getKey();  
-        if (key) {
-          lcd.print(key);
-          input_password += key;
-          contador++;
-          if (contador == N) {
-            if (passwordF == input_password) {
-              
-              passwordF = generarContrasenia();
-            input_password = "";
-            contador = 0;
-            SerialBT.disconnect();// se desconecta de cualquier dispositivo? hacer pruebas con varios dispositivos
-            entrar=false;
+  
+  while (entrar) {
 
-              return true;
+    char boton = teclado.getKey();
+    if (boton) {
+      lcd.print(boton);
+      contrasenia_entrada += boton;
+      contador++;
+      if (contador == N) {
+        if (contraseniaGenerada == contrasenia_entrada) {
 
-              
-            } else {
+          contrasenia_entrada = "";
+          contador = 0;
+          intentos = 0;
+          SerialBT.disconnect();
+          entrar = false;
 
-              
-            input_password = "";
-            contador = 0;
-            SerialBT.disconnect();// se desconecta de cualquier dispositivo? hacer pruebas con varios dispositivos
-            entrar=false;
-            return false;
-             
-            }
+          return true;
 
-          }
+
+        } else {
+
+          intentos++;
+
+          if (intentos == 3){
+                    
+          contrasenia_entrada = "";
+          contador = 0;
+          SerialBT.disconnect();
+          entrar = false;
+          intentos = 0;
+          return false;
           
+         }
+
+         else{
+              contrasenia_entrada = "";
+              contador = 0;              
+              mostrarTextoEstatico("Contrasenia erronea", 0, 1);
+              delay(3000);
+              mostrarTextoEstatico("Contrasenia:", 1, 1);
+          
+          
+          }
+
+
+
         }
 
+      }
+
     }
-  
-                                        
+
+  }
+
+
 }
 
-void acceso(bool decision){
-  if(decision){
-    displayStatic("Acceso permitido");
+void acceso(bool decision) {
+  if (decision) {
+    mostrarTextoEstatico("Acceso permitido", 1, 1);
+    delay(TIEMPO_ACCESO);
     digitalWrite(LEDV, HIGH);
-    digitalWrite(RELAY_PIN, LOW);
-    delay(ACCESS_DELAY);
-    digitalWrite(RELAY_PIN, HIGH);
+    digitalWrite(RELE_PIN, LOW);
+    delay(TIEMPO_ACCESO);
+    digitalWrite(RELE_PIN, HIGH);
     digitalWrite(LEDV, LOW);
+    ESP.restart();
   }
-  else{
-     displayStatic("Acceso denegado");
-     digitalWrite(LEDR, HIGH);
-     delay(ACCESS_DELAY);
-     digitalWrite(LEDR, LOW);
-    
+  else {
+    mostrarTextoEstatico("Acceso denegado", 1, 1);
+    digitalWrite(LEDR, HIGH);
+    delay(TIEMPO_ACCESO);
+    digitalWrite(LEDR, LOW);
+
   }
-  lcd.clear(); 
+  lcd.clear();
 }
-    
-     
 
-void setup()
-{
-  
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
-  pinMode(LEDV,OUTPUT);
-  pinMode(LEDR,OUTPUT);
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, HIGH); 
-  
-  lcd.begin(20,4);
-  SerialBT.begin(deviceName);
-  
-  //Serial.begin(9600);
+
+void setup() {
+  Serial.begin(115200);
+
   WiFi.mode(WIFI_AP_STA);
+  WiFi.begin(mySSID, myPASSWORD);
 
-  WiFi.begin(ssid, password);  
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    delay(5000);
+    ESP.restart();
   }
 
-  ///// Init ESP-NOW////////////////////////////////////////////////////////
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+  pinMode(LEDV, OUTPUT);
+  pinMode(LEDR, OUTPUT);
+  pinMode(RELE_PIN, OUTPUT);
+  digitalWrite(RELE_PIN, HIGH);
+
+  lcd.begin(columnasLcd, filasLcd);
+  SerialBT.begin(nombreDispositivo);
+
   if (esp_now_init() != ESP_OK) {
-    //Serial.println("Error initializing ESP-NOW");
+    
     return;
   }
   esp_now_register_send_cb(OnSent);
 
 
-  // Register peer
   esp_now_peer_info_t peerInfo;
-  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-  peerInfo.channel = 0;  
+  memcpy(peerInfo.peer_addr, direccionMAC, 6);
+  peerInfo.channel = 0;
   peerInfo.encrypt = false;
-  
-  // Add peer        
-  if (esp_now_add_peer(&peerInfo) != ESP_OK){
-    //Serial.println("Failed to add peer");
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    
     return;
   }
-  // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnRecv);
-  
 
-  
-  
+
+
   delay(100);
-  mySerial.begin(57600,SERIAL_8N1,16,17);
+  mySerial.begin(57600, SERIAL_8N1, 16, 17);
 
   delay(5);
 
 
 }
 
-//funcion init??
+void loop() {
 
 
-void loop()                     // run over and over again
-{
- 
-  //displayStatic("* O #");
-  //lcd.setCursor(0,0);
-  //lcd.print("* O #");
-  scrollInitialText(1, inicio, 250, lcdColumns);
+    mostrarTextoDinamicoInicial(1, inicio, 250, columnasLcd);
   
-  //char key = keypad.getKey();
- // if(key){
-    if(g_key == '*'){
-         acceso(autenticacionMiembro());
-
+    if (g_boton == '*') {
+      acceso(autenticacionMiembro());
+  
     }
-    else if(g_key == '#'){
+    else if (g_boton == '#') {
       acceso(indentificacionInvitado());
-  }
-  g_key='N';
-  //}
-   
+    }
+    g_boton = 'N';
+
+
 }
-  
