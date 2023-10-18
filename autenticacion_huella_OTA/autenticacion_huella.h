@@ -6,9 +6,6 @@
 #include "soc/soc.h"           
 #include "soc/rtc_cntl_reg.h"  
 #include "BluetoothSerial.h"
-#include <time.h>
-#include <math.h>
-
 
 #define RECONOCIDO 1
 #define INTRUSO 2
